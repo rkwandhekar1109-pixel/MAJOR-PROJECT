@@ -151,8 +151,9 @@ body{
     }
 
     .listing-card {
-        width: 100%;
-    }
+    width: 100% !important;
+    max-width: 100% !important;
+   }
 
     .card-img-top {
         width: 100% !important;
@@ -187,5 +188,9 @@ body{
         transform: none;
         opacity: 1;
     }
+    .row {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
 }
 
