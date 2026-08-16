@@ -137,9 +137,11 @@
 
 
 
+// ====================
+// Environment Variables
+// ====================
 
-
-if (process.env.NODE_ENV != "production") {
+if (process.env.NODE_ENV !== "production") {
     require("dotenv").config();
 }
 
@@ -152,6 +154,26 @@ const app = express();
 const mongoose = require("mongoose");
 const path = require("path");
 const methodOverride = require("method-override");
+const ejsMate = require("ejs-mate");
+
+const session = require("express-session");
+const MongoStore = require("connect-mongo").default;
+const flash = require("connect-flash");
+
+const passport = require("passport");
+const LocalStrategy = require("passport-local");
+
+const User = require("./models/user.js");
+const ExpressError = require("./utils/ExpressError.js");
+
+const listingRouter = require("./routes/listings.js");
+const reviewRouter = require("./routes/review.js");
+const userRouter = require("./routes/user.js");
+
+
+// ====================
+// Database URL
+// ====================
 
 const dbUrl = process.env.ATLASDB_URL;
 
@@ -159,18 +181,6 @@ if (!dbUrl) {
     throw new Error("ATLASDB_URL is missing in environment variables");
 }
 
-const ejsMate = require("ejs-mate");
-const ExpressError = require("./utils/ExpressError.js");
-const session = require("express-session");
-const MongoStore = require("connect-mongo").default;
-const flash = require("connect-flash");
-const passport = require("passport");
-const LocalStrategy = require("passport-local");
-const User = require("./models/user.js");
-
-const listingRouter = require("./routes/listings.js");
-const reviewRouter = require("./routes/review.js");
-const userRouter = require("./routes/user.js");
 
 // ====================
 // Database Connection
@@ -180,6 +190,7 @@ async function main() {
     await mongoose.connect(dbUrl);
 }
 
+
 // ====================
 // Express Configuration
 // ====================
@@ -187,12 +198,14 @@ async function main() {
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 
-app.use(express.urlencoded({ extended: true }));
-app.use(methodOverride("_method"));
-
 app.engine("ejs", ejsMate);
 
-app.use(express.static(path.join(__dirname, "/public")));
+app.use(express.urlencoded({ extended: true }));
+
+app.use(methodOverride("_method"));
+
+app.use(express.static(path.join(__dirname, "public")));
+
 
 // ====================
 // Session Store
@@ -203,22 +216,24 @@ const store = MongoStore.create({
     crypto: {
         secret: process.env.SECRET,
     },
-    touchAfter: 24 * 3600,
+    touchAfter: 24 * 60 * 60,
 });
 
 store.on("error", (err) => {
     console.log("SESSION STORE ERROR:", err);
 });
 
+
 // ====================
 // Session Options
 // ====================
 
 const sessionOptions = {
-    store,
+    store: store,
     secret: process.env.SECRET,
     resave: false,
     saveUninitialized: false,
+
     cookie: {
         httpOnly: true,
         secure: false,
@@ -227,7 +242,9 @@ const sessionOptions = {
 };
 
 app.use(session(sessionOptions));
+
 app.use(flash());
+
 
 // ====================
 // Passport Configuration
@@ -241,8 +258,9 @@ passport.use(new LocalStrategy(User.authenticate()));
 passport.serializeUser(User.serializeUser());
 passport.deserializeUser(User.deserializeUser());
 
+
 // ====================
-// Flash Messages & User
+// Flash Messages & Current User
 // ====================
 
 app.use((req, res, next) => {
@@ -252,34 +270,51 @@ app.use((req, res, next) => {
     next();
 });
 
+
+// ====================
+// HOME ROUTE
+// ====================
+
+app.get("/", (req, res) => {
+    res.redirect("/listings");
+});
+
+
 // ====================
 // Routes
 // ====================
 
 app.use("/", userRouter);
+
 app.use("/listings", listingRouter);
+
 app.use("/listings/:id/reviews", reviewRouter);
 
+
 // ====================
-// 404 Error
+// 404 Error Handler
 // ====================
 
 app.use((req, res, next) => {
     next(new ExpressError(404, "Page Not Found"));
 });
 
+
 // ====================
-// Error Handler
+// General Error Handler
 // ====================
 
 app.use((err, req, res, next) => {
-    let {
+    const {
         statusCode = 500,
         message = "Something went wrong",
     } = err;
 
-    res.status(statusCode).render("error.ejs", { message });
+    res.status(statusCode).render("error.ejs", {
+        message: message,
+    });
 });
+
 
 // ====================
 // Start Server
