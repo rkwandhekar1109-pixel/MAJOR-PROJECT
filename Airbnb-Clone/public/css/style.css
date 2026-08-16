@@ -183,4 +183,9 @@ body{
         height: auto;
         padding: 20px 10px;
     }
+    .card img:hover{
+        transform: none;
+        opacity: 1;
+    }
 }
+
